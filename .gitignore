@@ -1,0 +1,8 @@
+venv
+notepad
+.vscode
+live_violence.pth
+*.pth
+Videos
+*.mp4
+*.avi
