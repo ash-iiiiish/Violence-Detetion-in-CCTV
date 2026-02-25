@@ -7,6 +7,7 @@ import time
 from collections import deque
 from torchvision.models.video import r3d_18
 from ultralytics import YOLO
+import subprocess
 
 # ==========================
 # CONFIG
@@ -30,7 +31,7 @@ os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 torch.backends.cudnn.benchmark = True
 
 # ==========================
-# LOAD MODELS
+# LOAD MODELS (LOAD ONCE)
 # ==========================
 
 print("Loading 3D CNN model...")
@@ -67,7 +68,7 @@ def predict_video(video_path):
     fps = vid.get(cv2.CAP_PROP_FPS)
 
     if fps is None or fps == 0:
-        fps = 30  # fallback FPS
+        fps = 30
 
     frame_buffer = deque(maxlen=CLIP_LEN)
     prediction_history = deque(maxlen=SMOOTHING_WINDOW)
@@ -82,9 +83,12 @@ def predict_video(video_path):
     writer = None
     (W, H) = (None, None)
 
-    # 🔥 CHANGED TO AVI (Windows stable)
-    filename = f"processed_{int(time.time())}.avi"
-    output_path = os.path.join(OUTPUT_FOLDER, filename)
+    timestamp = int(time.time())
+    avi_filename = f"processed_{timestamp}.avi"
+    mp4_filename = f"processed_{timestamp}.mp4"
+
+    avi_path = os.path.join(OUTPUT_FOLDER, avi_filename)
+    mp4_path = os.path.join(OUTPUT_FOLDER, mp4_filename)
 
     while True:
         grabbed, frame = vid.read()
@@ -155,24 +159,39 @@ def predict_video(video_path):
             3,
         )
 
-        # 🔥 VIDEO WRITER FIX
+        # ================= VIDEO WRITER =================
         if writer is None:
             fourcc = cv2.VideoWriter_fourcc(*'XVID')
-            writer = cv2.VideoWriter(output_path, fourcc, fps, (W, H))
+            writer = cv2.VideoWriter(avi_path, fourcc, fps, (W, H))
 
             if not writer.isOpened():
-                print("ERROR: VideoWriter failed to open!")
+                raise Exception("VideoWriter failed to open.")
 
         writer.write(output)
 
+    # ================= CLEANUP =================
     if writer:
         writer.release()
 
     vid.release()
 
-    # 🔥 DEBUG INFO
-    print("Saved video at:", output_path)
-    print("File exists:", os.path.exists(output_path))
-    print("File size:", os.path.getsize(output_path))
+    # ================= CONVERT AVI → MP4 =================
+    ffmpeg_cmd = [
+        "ffmpeg",
+        "-y",
+        "-i", avi_path,
+        "-vcodec", "libx264",
+        "-pix_fmt", "yuv420p",
+        mp4_path
+    ]
 
-    return current_label, current_confidence, filename
+    subprocess.run(ffmpeg_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    # Remove AVI
+    if os.path.exists(avi_path):
+        os.remove(avi_path)
+
+    print("Saved video:", mp4_path)
+    print("File exists:", os.path.exists(mp4_path))
+
+    return current_label, current_confidence, mp4_filename
