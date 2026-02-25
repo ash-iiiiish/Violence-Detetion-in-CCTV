@@ -48,7 +48,6 @@ st.divider()
 
 # ==============================
 # CONDITIONS SECTION
-# ==============================
 
 st.markdown("### 📌 Conditions Before Uploading")
 
