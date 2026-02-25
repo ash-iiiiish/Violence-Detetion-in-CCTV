@@ -50,6 +50,10 @@ def preprocess_clip(frames):
     return torch.tensor(frames, dtype=torch.float32).unsqueeze(0).to(DEVICE)
 
 # ========================== PREDICT VIDEO ==========================
+# No changes in imports or model loading
+# ...
+
+# ========================== PREDICT VIDEO ==========================
 def predict_video(video_path):
     vid = cv2.VideoCapture(video_path)
     fps = vid.get(cv2.CAP_PROP_FPS) or 30
@@ -124,12 +128,15 @@ def predict_video(video_path):
         is_violence = current_label in ALERT_CLASSES
         color = (0, 0, 255) if is_violence else (0, 255, 0)
 
+        # Draw YOLO boxes
         for (x1, y1, x2, y2) in last_yolo_boxes:
             cv2.rectangle(output, (x1, y1), (x2, y2), color, 2)
 
+        # 🔥 Overlay label & confidence directly on video
+        display_text = f"{current_label} (confidence: {current_confidence*100:.2f}%)"
         cv2.putText(
             output,
-            f"{current_label} ({current_confidence*100:.2f}%)",
+            display_text,
             (int(0.03 * W), int(0.08 * H)),
             cv2.FONT_HERSHEY_SIMPLEX,
             1,
@@ -146,7 +153,6 @@ def predict_video(video_path):
 
         writer.write(output)
 
-    # Release resources
     vid.release()
     if writer:
         writer.release()
@@ -160,13 +166,12 @@ def predict_video(video_path):
             mp4_path
         ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-        # Remove original AVI
         if os.path.exists(avi_path):
             os.remove(avi_path)
 
     except Exception as e:
         print("FFmpeg conversion failed:", e)
-        mp4_path = avi_path  # fallback to AVI if conversion fails
+        mp4_path = avi_path  # fallback
 
     print("Saved video at:", mp4_path)
     return current_label, current_confidence, os.path.basename(mp4_path)
