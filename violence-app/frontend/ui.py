@@ -46,7 +46,6 @@ if selected_demo != "None":
 
 st.divider()
 
-# ==============================
 # CONDITIONS SECTION
 
 st.markdown("### 📌 Conditions Before Uploading")
