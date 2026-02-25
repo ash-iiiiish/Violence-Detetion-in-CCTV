@@ -7,3 +7,5 @@ Videos
 *.mp4
 *.avi
 *.pt
+__pycache__
+*.log
