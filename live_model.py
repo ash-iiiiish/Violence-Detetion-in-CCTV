@@ -22,9 +22,9 @@ torch.backends.cudnn.benchmark = True
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 IMG_SIZE = 112
 CLIP_LEN = 16
-YOLO_STRIDE = 3  # Run YOLO every 3 frames (IMPORTANT SPEED BOOST)
+YOLO_STRIDE = 3  # Run YOLO every 3 frames
 
-VIDEO_PATH = "C:/Users/kumar/OneDrive/Desktop/TRY-3/Violence-Detetion-in-CCTV/Videos/demo3.mp4"
+VIDEO_PATH = "C:/Users/kumar/OneDrive/Desktop/TRY-3/Violence-Detetion-in-CCTV/Videos/demo5.mp4"
 OUTPUT_PATH = "output.mp4"
 
 MODEL_PATH = "C:/Users/kumar/OneDrive/Desktop/TRY-3/Violence-Detetion-in-CCTV/live_violence.pth"
@@ -83,9 +83,11 @@ writer = None
 
 frame_buffer = deque(maxlen=CLIP_LEN)
 prediction_history = deque(maxlen=SMOOTHING_WINDOW)
+confidence_history = deque(maxlen=SMOOTHING_WINDOW)
 
 alert_cooldown_until = 0
 current_label = "NonFight"
+current_confidence = 0.0
 
 frame_count = 0
 last_yolo_boxes = []
@@ -118,12 +120,26 @@ while True:
         with torch.inference_mode():
             outputs = model(clip)
             probs = torch.softmax(outputs, dim=1)
-            _, pred = torch.max(probs, 1)
+            conf, pred = torch.max(probs, 1)
 
         predicted_label = class_names[pred.item()]
-        prediction_history.append(predicted_label)
+        predicted_conf = conf.item()
 
+        prediction_history.append(predicted_label)
+        confidence_history.append(predicted_conf)
+
+        # Majority vote smoothing
         current_label = max(set(prediction_history), key=prediction_history.count)
+
+        # Average confidence of smoothed label
+        relevant_conf = [
+            confidence_history[i]
+            for i in range(len(prediction_history))
+            if prediction_history[i] == current_label
+        ]
+
+        if len(relevant_conf) > 0:
+            current_confidence = sum(relevant_conf) / len(relevant_conf)
 
     # ===============================
     # ALERT LOGIC
@@ -150,12 +166,14 @@ while True:
         cv2.rectangle(output, (x1, y1), (x2, y2), color, 2)
 
     # ===============================
-    # DISPLAY TEXT
+    # DISPLAY LABEL + CONFIDENCE
     # ===============================
+
+    display_text = f"{current_label} ({current_confidence*100:.2f}%)"
 
     cv2.putText(
         output,
-        f"{current_label}",
+        display_text,
         (int(0.03 * W), int(0.08 * H)),
         cv2.FONT_HERSHEY_SIMPLEX,
         1,
