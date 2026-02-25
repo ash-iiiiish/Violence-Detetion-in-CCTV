@@ -26,12 +26,11 @@ YOLO_PATH = "C:/Users/kumar/OneDrive/Desktop/TRY-3/Violence-Detetion-in-CCTV/vio
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_FOLDER = os.path.join(BASE_DIR, "processed_videos")
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
-os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 torch.backends.cudnn.benchmark = True
 
 # ==========================
-# LOAD 3D CNN MODEL (LOAD ONCE)
+# LOAD MODELS
 # ==========================
 
 print("Loading 3D CNN model...")
@@ -47,12 +46,7 @@ model.eval()
 
 print("Classes:", class_names)
 
-# ==========================
-# LOAD YOLO MODEL (LOAD ONCE)
-# ==========================
-
 weapon_model = YOLO(YOLO_PATH)
-
 
 # ==========================
 # PREPROCESS
@@ -63,17 +57,17 @@ def preprocess_clip(frames):
     frames = np.transpose(frames, (3, 0, 1, 2))
     return torch.tensor(frames, dtype=torch.float32).unsqueeze(0).to(DEVICE)
 
-
 # ==========================
-# MAIN PREDICTION FUNCTION
+# MAIN FUNCTION
 # ==========================
 
 def predict_video(video_path):
 
     vid = cv2.VideoCapture(video_path)
     fps = vid.get(cv2.CAP_PROP_FPS)
-    if fps == 0:
-        fps = 30
+
+    if fps is None or fps == 0:
+        fps = 30  # fallback FPS
 
     frame_buffer = deque(maxlen=CLIP_LEN)
     prediction_history = deque(maxlen=SMOOTHING_WINDOW)
@@ -88,10 +82,9 @@ def predict_video(video_path):
     writer = None
     (W, H) = (None, None)
 
-    output_path = os.path.join(
-        OUTPUT_FOLDER,
-        f"processed_{int(time.time())}.mp4"
-    )
+    # 🔥 CHANGED TO AVI (Windows stable)
+    filename = f"processed_{int(time.time())}.avi"
+    output_path = os.path.join(OUTPUT_FOLDER, filename)
 
     while True:
         grabbed, frame = vid.read()
@@ -105,15 +98,11 @@ def predict_video(video_path):
 
         output = frame.copy()
 
-        # ===============================
-        # CNN PROCESSING
-        # ===============================
-
+        # ================= CNN =================
         resized = cv2.resize(frame, (IMG_SIZE, IMG_SIZE))
         frame_buffer.append(resized)
 
         if len(frame_buffer) == CLIP_LEN:
-
             clip = preprocess_clip(list(frame_buffer))
 
             with torch.inference_mode():
@@ -127,11 +116,7 @@ def predict_video(video_path):
             prediction_history.append(predicted_label)
             confidence_history.append(predicted_conf)
 
-            # Majority vote smoothing
-            current_label = max(
-                set(prediction_history),
-                key=prediction_history.count
-            )
+            current_label = max(set(prediction_history), key=prediction_history.count)
 
             relevant_conf = [
                 confidence_history[i]
@@ -139,32 +124,24 @@ def predict_video(video_path):
                 if prediction_history[i] == current_label
             ]
 
-            if len(relevant_conf) > 0:
+            if relevant_conf:
                 current_confidence = sum(relevant_conf) / len(relevant_conf)
 
-        # ===============================
-        # YOLO (RUN EVERY N FRAMES)
-        # ===============================
-
+        # ================= YOLO =================
         if frame_count % YOLO_STRIDE == 0:
             yolo_results = weapon_model(frame, imgsz=640, verbose=False)
-
             last_yolo_boxes = []
+
             for r in yolo_results:
                 for box in r.boxes:
                     x1, y1, x2, y2 = map(int, box.xyxy[0])
                     last_yolo_boxes.append((x1, y1, x2, y2))
 
-        # Draw boxes
         is_violence = current_label in ALERT_CLASSES
         color = (0, 0, 255) if is_violence else (0, 255, 0)
 
         for (x1, y1, x2, y2) in last_yolo_boxes:
             cv2.rectangle(output, (x1, y1), (x2, y2), color, 2)
-
-        # ===============================
-        # DISPLAY LABEL + CONFIDENCE
-        # ===============================
 
         display_text = f"{current_label} ({current_confidence*100:.2f}%)"
 
@@ -178,26 +155,24 @@ def predict_video(video_path):
             3,
         )
 
-        # ===============================
-        # SAVE VIDEO
-        # ===============================
-
+        # 🔥 VIDEO WRITER FIX
         if writer is None:
-            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-            writer = cv2.VideoWriter(
-                output_path,
-                fourcc,
-                fps,
-                (W, H),
-                True
-            )
+            fourcc = cv2.VideoWriter_fourcc(*'XVID')
+            writer = cv2.VideoWriter(output_path, fourcc, fps, (W, H))
+
+            if not writer.isOpened():
+                print("ERROR: VideoWriter failed to open!")
 
         writer.write(output)
 
-    # Cleanup
     if writer:
         writer.release()
 
     vid.release()
 
-    return current_label, current_confidence, output_path
+    # 🔥 DEBUG INFO
+    print("Saved video at:", output_path)
+    print("File exists:", os.path.exists(output_path))
+    print("File size:", os.path.getsize(output_path))
+
+    return current_label, current_confidence, filename

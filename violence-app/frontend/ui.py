@@ -57,7 +57,8 @@ if selected_demo != "None":
         st.success(f"Prediction: {result['prediction']}")
         st.info(f"Confidence: {result['confidence']} %")
 
-        st.video(result["processed_video_path"])
+        # 🔥 FIXED
+        st.video(result["video_url"])
 
 st.divider()
 
@@ -86,4 +87,5 @@ if uploaded_file is not None:
         st.success(f"Prediction: {result['prediction']}")
         st.info(f"Confidence: {result['confidence']} %")
 
-        st.video(result["processed_video_path"])
+        # 🔥 FIXED
+        st.video(result["video_url"])

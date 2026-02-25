@@ -9,3 +9,5 @@ notebook
 ultralytics
 streamlit
 python-multipart
+fastapi
+uvicorn
