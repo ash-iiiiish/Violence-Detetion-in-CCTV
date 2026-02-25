@@ -9,22 +9,6 @@ st.set_page_config(page_title="AI Violence Detection", layout="wide")
 st.title("🛡 AI-Powered Violence Detection System")
 
 # ==============================
-# CONDITIONS SECTION
-# ==============================
-
-st.markdown("### 📌 Conditions Before Uploading")
-
-st.markdown("""
-- Video must be in **.mp4 format**
-- Recommended resolution: **128x128 or higher**
-- Duration: **5–60 seconds**
-- Clear visibility of subjects
-- Avoid extreme lighting conditions
-""")
-
-st.divider()
-
-# ==============================
 # DEMO VIDEOS SECTION
 # ==============================
 
@@ -61,6 +45,23 @@ if selected_demo != "None":
         st.video(result["video_url"])
 
 st.divider()
+
+# ==============================
+# CONDITIONS SECTION
+# ==============================
+
+st.markdown("### 📌 Conditions Before Uploading")
+
+st.markdown("""
+- Video must be in **.mp4 format**
+- Recommended resolution: **128x128 or higher**
+- Duration: **5–60 seconds**
+- Clear visibility of subjects
+- Avoid extreme lighting conditions
+""")
+
+st.divider()
+
 
 # ==============================
 # USER UPLOAD SECTION
