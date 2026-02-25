@@ -10,27 +10,33 @@ from torchvision.models.video import r3d_18
 from ultralytics import YOLO
 
 # ==========================
+# PERFORMANCE BOOST
+# ==========================
+
+torch.backends.cudnn.benchmark = True
+
+# ==========================
 # CONFIG
 # ==========================
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 IMG_SIZE = 112
 CLIP_LEN = 16
+YOLO_STRIDE = 3  # Run YOLO every 3 frames (IMPORTANT SPEED BOOST)
 
-VIDEO_PATH = "C:/Users/kumar/OneDrive/Desktop/TRY-3/Violence-Detetion-in-CCTV/Videos/demo2.mp4"
+VIDEO_PATH = "C:/Users/kumar/OneDrive/Desktop/TRY-3/Violence-Detetion-in-CCTV/Videos/demo3.mp4"
 OUTPUT_PATH = "output.mp4"
 
 MODEL_PATH = "C:/Users/kumar/OneDrive/Desktop/TRY-3/Violence-Detetion-in-CCTV/live_violence.pth"
 YOLO_PATH = "C:/Users/kumar/OneDrive/Desktop/TRY-3/Violence-Detetion-in-CCTV/yolov8n.pt"
 
 SMOOTHING_WINDOW = 5
-ALERT_COOLDOWN = 3  # seconds
+ALERT_COOLDOWN = 3
 
-# ONLY THESE CLASSES TRIGGER ALERT
 ALERT_CLASSES = ["Fight", "HockeyFight"]
 
 # ==========================
-# LOAD CNN MODEL
+# LOAD 3D CNN MODEL
 # ==========================
 
 print("Loading 3D CNN model...")
@@ -47,103 +53,104 @@ model.eval()
 print("Classes:", class_names)
 
 # ==========================
-# LOAD YOLO MODEL (Only for box drawing)
+# LOAD YOLO MODEL
 # ==========================
 
 weapon_model = YOLO(YOLO_PATH)
 
 # ==========================
-# PREPROCESS FUNCTION
+# PREPROCESS
 # ==========================
 
 def preprocess_clip(frames):
     frames = np.array(frames) / 255.0
-    frames = np.transpose(frames, (3, 0, 1, 2))  # C,T,H,W
+    frames = np.transpose(frames, (3, 0, 1, 2))
     return torch.tensor(frames, dtype=torch.float32).unsqueeze(0).to(DEVICE)
 
 # ==========================
-# VIDEO PROCESSING
+# VIDEO
 # ==========================
 
 vid = cv2.VideoCapture(VIDEO_PATH)
 fps = vid.get(cv2.CAP_PROP_FPS)
-
 if fps == 0:
-    fps = 25
+    fps = 30
 
-print(f"FPS: {fps}")
+print("Video FPS:", fps)
 
 writer = None
 (W, H) = (None, None)
 
-frame_buffer = []
+frame_buffer = deque(maxlen=CLIP_LEN)
 prediction_history = deque(maxlen=SMOOTHING_WINDOW)
 
 alert_cooldown_until = 0
 current_label = "NonFight"
 
-while True:
+frame_count = 0
+last_yolo_boxes = []
 
+start_time = time.time()
+
+while True:
     grabbed, frame = vid.read()
     if not grabbed:
-        print("Video ended.")
         break
 
-    if W is None or H is None:
+    frame_count += 1
+
+    if W is None:
         (H, W) = frame.shape[:2]
 
     output = frame.copy()
 
-    # Resize for CNN
+    # ===============================
+    # CNN PROCESSING
+    # ===============================
+
     resized = cv2.resize(frame, (IMG_SIZE, IMG_SIZE))
     frame_buffer.append(resized)
 
-    # ===============================
-    # CNN Prediction Every CLIP_LEN
-    # ===============================
+    if len(frame_buffer) == CLIP_LEN:
 
-    if len(frame_buffer) >= CLIP_LEN:
+        clip = preprocess_clip(list(frame_buffer))
 
-        clip = preprocess_clip(frame_buffer[-CLIP_LEN:])
-
-        with torch.no_grad():
+        with torch.inference_mode():
             outputs = model(clip)
             probs = torch.softmax(outputs, dim=1)
-            conf, pred = torch.max(probs, 1)
+            _, pred = torch.max(probs, 1)
 
-        current_label = class_names[pred.item()]
-        prediction_history.append(current_label)
+        predicted_label = class_names[pred.item()]
+        prediction_history.append(predicted_label)
 
-        # Majority vote smoothing
         current_label = max(set(prediction_history), key=prediction_history.count)
 
-        frame_buffer.pop(0)
-
     # ===============================
-    # STRICT ALERT LOGIC
+    # ALERT LOGIC
     # ===============================
 
     is_violence = current_label in ALERT_CLASSES
-
-    # ===============================
-    # COLOR SELECTION
-    # ===============================
-
     color = (0, 0, 255) if is_violence else (0, 255, 0)
 
     # ===============================
-    # YOLO BOXES (Just for visualization)
+    # YOLO (RUN EVERY N FRAMES)
     # ===============================
 
-    yolo_results = weapon_model(frame, verbose=False)
+    if frame_count % YOLO_STRIDE == 0:
+        yolo_results = weapon_model(frame, imgsz=640, verbose=False)
 
-    for r in yolo_results:
-        for box in r.boxes:
-            x1, y1, x2, y2 = map(int, box.xyxy[0])
-            cv2.rectangle(output, (x1, y1), (x2, y2), color, 2)
+        last_yolo_boxes = []
+        for r in yolo_results:
+            for box in r.boxes:
+                x1, y1, x2, y2 = map(int, box.xyxy[0])
+                last_yolo_boxes.append((x1, y1, x2, y2))
+
+    # Draw stored boxes
+    for (x1, y1, x2, y2) in last_yolo_boxes:
+        cv2.rectangle(output, (x1, y1), (x2, y2), color, 2)
 
     # ===============================
-    # DISPLAY LABEL
+    # DISPLAY TEXT
     # ===============================
 
     cv2.putText(
@@ -157,14 +164,13 @@ while True:
     )
 
     # ===============================
-    # BEEP ALERT (Only Fight/HockeyFight)
+    # BEEP ALERT
     # ===============================
 
     current_time = time.time()
-
     if is_violence and current_time > alert_cooldown_until:
         alert_cooldown_until = current_time + ALERT_COOLDOWN
-        winsound.Beep(1000, 1000)  # 1 sec beep
+        winsound.Beep(1000, 500)
 
     # ===============================
     # SAVE VIDEO
@@ -177,13 +183,19 @@ while True:
     writer.write(output)
     cv2.imshow("Output", output)
 
-    if cv2.waitKey(int(1000 / fps)) & 0xFF == 27:
-        print("ESC pressed.")
+    if cv2.waitKey(1) & 0xFF == 27:
         break
 
-print("Releasing memory...")
+# ==========================
+# CLEANUP
+# ==========================
 
-if writer is not None:
+end_time = time.time()
+total_time = end_time - start_time
+print("Total Time:", total_time)
+print("Average FPS:", frame_count / total_time)
+
+if writer:
     writer.release()
 
 vid.release()
