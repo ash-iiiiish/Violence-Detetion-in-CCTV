@@ -2,3 +2,8 @@ And run backend from inside backend/:
 
 cd backend
 uvicorn app:app --reload
+
+Run Streamlit like this:
+
+cd frontend
+streamlit run ui.py

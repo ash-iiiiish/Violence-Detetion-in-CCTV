@@ -30,28 +30,35 @@ st.divider()
 
 st.subheader("🎥 Try Demo Videos")
 
-demo_folder = "../demo_videos"
-demo_files = [f for f in os.listdir(demo_folder) if f.endswith(".mp4")]
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+demo_folder = os.path.join(BASE_DIR, "..", "demo_videos")
+
+demo_files = []
+if os.path.exists(demo_folder):
+    demo_files = [f for f in os.listdir(demo_folder) if f.endswith(".mp4")]
 
 selected_demo = st.selectbox("Choose Demo Video", ["None"] + demo_files)
 
-video_path = None
-
 if selected_demo != "None":
+
     video_path = os.path.join(demo_folder, selected_demo)
     st.video(video_path)
 
     if st.button("Analyze Demo Video"):
-        with open(video_path, "rb") as f:
-            response = requests.post(
-                BACKEND_URL,
-                files={"file": f}
-            )
+
+        with st.spinner("Processing video... Please wait ⏳"):
+            with open(video_path, "rb") as f:
+                response = requests.post(
+                    BACKEND_URL,
+                    files={"file": (selected_demo, f, "video/mp4")}
+                )
 
         result = response.json()
 
         st.success(f"Prediction: {result['prediction']}")
         st.info(f"Confidence: {result['confidence']} %")
+
+        st.video(result["processed_video_path"])
 
 st.divider()
 
@@ -69,12 +76,15 @@ if uploaded_file is not None:
 
     if st.button("Analyze Uploaded Video"):
 
-        response = requests.post(
-            BACKEND_URL,
-            files={"file": uploaded_file.getvalue()}
-        )
+        with st.spinner("Processing video... Please wait ⏳"):
+            response = requests.post(
+                BACKEND_URL,
+                files={"file": (uploaded_file.name, uploaded_file, "video/mp4")}
+            )
 
         result = response.json()
 
         st.success(f"Prediction: {result['prediction']}")
         st.info(f"Confidence: {result['confidence']} %")
+
+        st.video(result["processed_video_path"])
