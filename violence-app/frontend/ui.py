@@ -1,0 +1,80 @@
+import streamlit as st
+import requests
+import os
+
+BACKEND_URL = "http://127.0.0.1:8000/predict/"
+
+st.set_page_config(page_title="AI Violence Detection", layout="wide")
+
+st.title("🛡 AI-Powered Violence Detection System")
+
+# ==============================
+# CONDITIONS SECTION
+# ==============================
+
+st.markdown("### 📌 Conditions Before Uploading")
+
+st.markdown("""
+- Video must be in **.mp4 format**
+- Recommended resolution: **128x128 or higher**
+- Duration: **5–60 seconds**
+- Clear visibility of subjects
+- Avoid extreme lighting conditions
+""")
+
+st.divider()
+
+# ==============================
+# DEMO VIDEOS SECTION
+# ==============================
+
+st.subheader("🎥 Try Demo Videos")
+
+demo_folder = "../demo_videos"
+demo_files = [f for f in os.listdir(demo_folder) if f.endswith(".mp4")]
+
+selected_demo = st.selectbox("Choose Demo Video", ["None"] + demo_files)
+
+video_path = None
+
+if selected_demo != "None":
+    video_path = os.path.join(demo_folder, selected_demo)
+    st.video(video_path)
+
+    if st.button("Analyze Demo Video"):
+        with open(video_path, "rb") as f:
+            response = requests.post(
+                BACKEND_URL,
+                files={"file": f}
+            )
+
+        result = response.json()
+
+        st.success(f"Prediction: {result['prediction']}")
+        st.info(f"Confidence: {result['confidence']} %")
+
+st.divider()
+
+# ==============================
+# USER UPLOAD SECTION
+# ==============================
+
+st.subheader("📤 Upload Your Own Video")
+
+uploaded_file = st.file_uploader("Upload .mp4 Video", type=["mp4"])
+
+if uploaded_file is not None:
+
+    st.video(uploaded_file)
+
+    if st.button("Analyze Uploaded Video"):
+
+        response = requests.post(
+            BACKEND_URL,
+            files={"file": uploaded_file.getvalue()}
+        )
+
+        result = response.json()
+
+        st.success(f"Prediction: {result['prediction']}")
+        st.info(f"Confidence: {result['confidence']} %")

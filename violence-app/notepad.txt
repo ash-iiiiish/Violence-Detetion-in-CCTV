@@ -1,0 +1,4 @@
+And run backend from inside backend/:
+
+cd backend
+uvicorn app:app --reload
