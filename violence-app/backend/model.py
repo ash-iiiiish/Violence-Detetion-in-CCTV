@@ -23,7 +23,9 @@ ALERT_CLASSES = ["Fight", "HockeyFight"]
 MODEL_PATH = "C:/Users/kumar/OneDrive/Desktop/TRY-3/Violence-Detetion-in-CCTV/violence-app/live_violence.pth"
 YOLO_PATH = "C:/Users/kumar/OneDrive/Desktop/TRY-3/Violence-Detetion-in-CCTV/violence-app/yolov8n.pt"
 
-OUTPUT_FOLDER = "processed_videos"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+OUTPUT_FOLDER = os.path.join(BASE_DIR, "processed_videos")
+os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 torch.backends.cudnn.benchmark = True

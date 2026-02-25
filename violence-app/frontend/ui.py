@@ -30,8 +30,7 @@ st.divider()
 
 st.subheader("🎥 Try Demo Videos")
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-demo_folder = os.path.join(BASE_DIR, "..", "demo_videos")
+demo_folder = "C:/Users/kumar/OneDrive/Desktop/TRY-3/Violence-Detetion-in-CCTV/violence-app/demo-videos"
 
 demo_files = []
 if os.path.exists(demo_folder):
