@@ -10,3 +10,6 @@ An AI-Powered System which can detect any type of violence occured in a video fi
 ## 🤝 Contributing
 Contributions are welcome! Fork this repository and submit a pull request.
 
+dcmd
+dvj
+dvnk
