@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 import shutil
@@ -16,11 +16,10 @@ PROCESSED_FOLDER = os.path.join(BASE_DIR, "processed_videos")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(PROCESSED_FOLDER, exist_ok=True)
 
-# Serve processed videos
 app.mount("/videos", StaticFiles(directory=PROCESSED_FOLDER), name="videos")
 
 @app.post("/predict/")
-async def predict(file: UploadFile = File(...)):
+async def predict(request: Request, file: UploadFile = File(...)):
 
     unique_name = f"{uuid.uuid4()}.mp4"
     file_path = os.path.join(UPLOAD_FOLDER, unique_name)
@@ -30,8 +29,10 @@ async def predict(file: UploadFile = File(...)):
 
     label, confidence, output_filename = predict_video(file_path)
 
+    base_url = str(request.base_url)
+
     return JSONResponse({
         "prediction": label,
         "confidence": round(confidence * 100, 2),
-        "video_url": f"http://127.0.0.1:8000/videos/{output_filename}"
+        "video_url": f"{base_url}videos/{output_filename}"
     })
