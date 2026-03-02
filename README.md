@@ -210,5 +210,4 @@ Full list available in `requirements.txt`.
 ## 🤝 Contributing
 Contributions are welcome! Fork this repository and submit a pull request.
 
-vkr
-revoje
+
