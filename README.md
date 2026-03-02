@@ -212,7 +212,3 @@ Contributions are welcome! Fork this repository and submit a pull request.
 
 vkr
 revoje
-vier
-rjre
-readme small changesreadme small changes
-readme small changes
