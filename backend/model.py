@@ -21,8 +21,8 @@ WEAPON_RELAX_FRAMES = 30   # <-- prevents flickering
 VIOLENCE_SMOOTH_COUNT = 5  # <-- smoothing window
 
 # 🔥 MANUAL PATHS (UNCHANGED)
-MODEL_PATH = "C:/Users/kumar/OneDrive/Desktop/TRY-3/Violence-Detetion-in-CCTV/violence-app/backend/live_violence.pth"
-YOLO_PATH = "C:/Users/kumar/OneDrive/Desktop/TRY-3/Violence-Detetion-in-CCTV/violence-app/backend/best-yolo.pt"
+MODEL_PATH = "C:/Users/kumar/OneDrive/Desktop/TRY-3/Violence-Detetion-in-CCTV/backend/live_violence.pth"
+YOLO_PATH = "C:/Users/kumar/OneDrive/Desktop/TRY-3/Violence-Detetion-in-CCTV/backend/best-yolo.pt"
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_FOLDER = os.path.join(BASE_DIR, "processed_videos")
