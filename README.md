@@ -205,6 +205,7 @@ Full list available in `requirements.txt`.
 
 ## 👨‍💻 Contributors
 - [@ash-iiiiish](https://github.com/ash-iiiiish)
+- [@rhitansh](https://github.com/rhitansh)
 
 
 ## 🤝 Contributing
