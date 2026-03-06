@@ -1,7 +1,7 @@
 # Violence-Detetion-in-CCTV:
 An AI-Powered System which can detect any type of violence occured in a video file that can be used in CCTV recordings to detect noise and provide necessary alerts.
 
-## Introduction
+## Introduction:
 
 Violence Detection in CCTV is an AI-powered surveillance system that
 detects violent activities in video footage using Deep Learning and
