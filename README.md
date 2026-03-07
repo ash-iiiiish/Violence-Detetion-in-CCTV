@@ -211,5 +211,3 @@ Full list available in `requirements.txt`.
 ## 🤝 Contributing
 Contributions are welcome! Fork this repository and submit a pull request.
 
-small changes in readme filesmall changes in readme filesmall changes in readme filesmall changes in readme filesmall changes in readme file
-small changes in readme file
