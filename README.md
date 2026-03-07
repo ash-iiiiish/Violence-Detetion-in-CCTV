@@ -211,15 +211,3 @@ Full list available in `requirements.txt`.
 ## 🤝 Contributing
 Contributions are welcome! Fork this repository and submit a pull request.
 
-wjhf
-weuf
-wfuhfw
-fihwf
-wf
-
-dfjw
-fifw
-fwrifw
-dfjw
-fifw
-fwrifw
