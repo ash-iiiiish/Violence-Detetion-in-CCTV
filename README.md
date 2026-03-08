@@ -1,212 +1,217 @@
-# Violence-Detetion-in-CCTV:
-An AI-Powered System which can detect any type of violence occured in a video file that can be used in CCTV recordings to detect noise and provide necessary alerts.
+# 🚨 AI-Powered Violence Detection in CCTV
 
-## Introduction:
+An AI-powered surveillance system that detects violent activity in CCTV
+footage using Deep Learning and Computer Vision.
 
-Violence Detection in CCTV is an AI-powered surveillance system that
-detects violent activities in video footage using Deep Learning and
-Computer Vision.\
-The system combines:
-
--   **R3D-18 (3D ResNet)** for temporal violence classification
--   **YOLOv8** for real-time human/object detection
--   **FastAPI** backend for video processing API
--   **Streamlit** frontend for user interaction
-
-This project is designed for real-time CCTV monitoring, automated
-alerts, and video-based violence detection.
+This project combines **spatio-temporal video understanding**, **object
+detection**, and **pose-aware analysis** to identify potential violent
+incidents in recorded or live surveillance videos.
 
 ------------------------------------------------------------------------
 
-## Table of Contents
+# 📌 Project Overview
 
--   Introduction
--   Features
--   Project Architecture
--   Installation
--   Usage
--   API Endpoints
--   Configuration
--   Dependencies
--   Project Structure
--   Examples
--   Troubleshooting
--   License
+Violence Detection in CCTV is designed to automatically analyze video
+footage and detect violent activity using a combination of:
 
-------------------------------------------------------------------------
+-   Fine-tuned **R3D-18 (3D ResNet)** for temporal violence
+    classification
+-   Fine-tuned **YOLOv8** for real-time person and weapon detection
+-   **Pose estimation** for human posture analysis
+-   **FFmpeg-based video processing pipeline**
+-   **FastAPI backend** for model inference
+-   **Streamlit frontend** for interactive user interface
 
-## Features
-
--   Real-time violence detection
--   Video upload and processing via API
--   YOLO-based person detection
--   3D CNN (R3D-18) temporal classification
--   Smoothed prediction window
--   Processed video output with detection results
--   Streamlit-based UI
--   GPU acceleration support (CUDA)
+The system processes uploaded CCTV videos, analyzes motion and object
+interactions, and generates an annotated output video highlighting
+detected violence.
 
 ------------------------------------------------------------------------
 
-## Project Architecture
+# ✨ Key Features
 
-1.  Video is uploaded through the frontend.
-2.  FastAPI backend receives and stores the video.
-3.  Frames are processed using:
-    -   YOLOv8 for object detection
-    -   R3D-18 for violence classification
-4.  Predictions are smoothed using a sliding window.
-5.  Output video is generated with annotations.
-6.  Processed video is returned to the user.
+-   🎥 Violence detection from CCTV footage
+-   🧠 Spatio-temporal video understanding using 3D CNN
+-   🔍 Fine-tuned YOLOv8 for custom weapon detection (guns, rifles,
+    etc.)
+-   🧍 Pose-aware human motion analysis
+-   🎬 Automated video processing pipeline using FFmpeg
+-   ⚡ FastAPI-based backend for inference
+-   🖥 Interactive Streamlit UI
+-   🚀 GPU acceleration support (CUDA)
 
 ------------------------------------------------------------------------
 
-## Installation
+# 🏗 System Architecture
 
-### 1. Clone the Repository
+The system follows a multi-stage video processing pipeline:
 
-``` bash
-git clone https://github.com/your-username/Violence-Detection-in-CCTV.git
-cd Violence-Detection-in-CCTV/violence-app
-```
+CCTV Video Input\
+↓\
+Video Preprocessing (FFmpeg)\
+↓\
+Frame Extraction\
+↓\
+YOLOv8 Detection (Persons / Weapons)\
+↓\
+Pose Estimation (Human Keypoints)\
+↓\
+R3D-18 Temporal Violence Classification\
+↓\
+Sliding Window Prediction Smoothing\
+↓\
+Annotated Output Video
 
-### 2. Create Virtual Environment
+------------------------------------------------------------------------
 
-``` bash
+# ⚙️ Technologies Used
+
+## AI / Deep Learning
+
+-   PyTorch
+-   R3D-18 (3D CNN)
+-   YOLOv8 (Fine-tuned)
+-   Pose Estimation
+
+## Backend
+
+-   FastAPI
+-   Uvicorn
+
+## Frontend
+
+-   Streamlit
+
+## Video Processing
+
+-   OpenCV
+-   FFmpeg
+
+## Other Tools
+
+-   NumPy
+-   Scikit-learn
+
+------------------------------------------------------------------------
+
+# 📂 Project Structure
+
+Violence-Detetion-in-CCTV\
+│\
+├── violence-app/\
+│ ├── backend/\
+│ │ ├── app.py\
+│ │ └── model.py\
+│ │\
+│ ├── frontend/\
+│ │ └── ui.py\
+│ │\
+│ ├── live_model.py\
+│ └── requirements.txt\
+│\
+├── README.md\
+└── LICENSE
+
+------------------------------------------------------------------------
+
+# 🚀 Installation
+
+## 1 Clone Repository
+
+git clone https://github.com/ash-iiiiish/Violence-Detetion-in-CCTV\
+cd Violence-Detetion-in-CCTV/violence-app
+
+------------------------------------------------------------------------
+
+## 2 Create Virtual Environment
+
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
 
-### 3. Install Dependencies
+Activate:
 
-``` bash
-pip install -r requirements.txt
-```
+Windows
+
+venv`\Scripts`{=tex}`\activate`{=tex}
+
+Linux / Mac
+
+source venv/bin/activate
 
 ------------------------------------------------------------------------
 
-## Usage
+## 3 Install Dependencies
 
-### Run Backend (FastAPI)
+pip install -r requirements.txt
 
-``` bash
-cd backend
+------------------------------------------------------------------------
+
+# ▶️ Running the Application
+
+## Start Backend
+
+cd backend\
 uvicorn app:app --reload
-```
 
 Backend runs at:
 
-    http://127.0.0.1:8000
-
-### Run Frontend (Streamlit)
-
-``` bash
-cd frontend
-streamlit run ui.py
-```
+http://127.0.0.1:8000
 
 ------------------------------------------------------------------------
 
-## API Endpoints
+## Start Frontend
+
+cd frontend\
+streamlit run ui.py
+
+------------------------------------------------------------------------
+
+# 📡 API Endpoint
 
 ### POST `/predict/`
 
 Upload a video file for violence detection.
 
-**Request:** - Form-data with video file
+Input\
+- Video file (form-data)
 
-**Response:** - JSON containing processed video path
-
-------------------------------------------------------------------------
-
-## Configuration
-
-You may need to update model paths inside:
-
--   `backend/model.py`
--   `live_model.py`
-
-Update:
-
--   MODEL_PATH
--   YOLO_PATH
--   Input/output video paths
-
-For GPU usage:
-
-    DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+Output\
+- JSON response containing processed video path
 
 ------------------------------------------------------------------------
 
-## Dependencies
+# 📊 Example Workflow
 
-Main libraries used:
-
--   torch \>= 2.0.0
--   torchvision \>= 0.15.0
--   numpy
--   opencv-python
--   scikit-learn
--   ultralytics (YOLOv8)
--   fastapi
--   uvicorn
--   streamlit
-
-Full list available in `requirements.txt`.
+1.  Upload CCTV footage using the Streamlit interface.\
+2.  System processes the video through the AI pipeline.\
+3.  Violence is detected using temporal motion analysis.\
+4.  Annotated output video is generated with detection results.
 
 ------------------------------------------------------------------------
 
-## Project Structure
-
-    Violence-Detetion-in-CCTV-main/
-    │
-    ├── violence-app/
-    │   ├── backend/
-    │   │   ├── app.py
-    │   │   └── model.py
-    │   ├── frontend/
-    │   │   └── ui.py
-    │   ├── live_model.py
-    │   └── requirements.txt
-    │
-    ├── LICENSE
-    └── README.md
-
-------------------------------------------------------------------------
-
-## Examples
-
-1.  Upload a CCTV video through Streamlit UI.
-2.  System detects violent activity.
-3.  Output video is generated with bounding boxes and labels.
-4.  Processed video available via `/videos/` endpoint.
-
-------------------------------------------------------------------------
-
-## Troubleshooting
+# ⚠️ Troubleshooting
 
 ### Model Not Loading
 
--   Ensure correct MODEL_PATH.
--   Verify model file exists.
--   Check CUDA availability.
+-   Verify correct model path in `model.py`
+-   Ensure weights are available
+-   Check CUDA availability
 
-### Video Not Processing
+### Video Processing Errors
 
--   Confirm OpenCV installation.
--   Ensure video format is supported (MP4 recommended).
-
-### YOLO Errors
-
--   Ensure ultralytics is installed properly.
--   Check YOLO model path.
+-   Ensure FFmpeg is installed
+-   Confirm video format is supported (MP4 recommended)
 
 ------------------------------------------------------------------------
+
 
 ## 👨‍💻 Contributors
 - [@ash-iiiiish](https://github.com/ash-iiiiish)
 - [@rhitansh](https://github.com/rhitansh)
 
+------------------------------------------------------------------------
 
 ## 🤝 Contributing
 Contributions are welcome! Fork this repository and submit a pull request.
+
+
+# ⭐ If you found this project interesting, consider giving it a star!
