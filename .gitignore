@@ -10,3 +10,4 @@ Videos
 __pycache__
 *.pyc
 *.log
+*.pth
