@@ -1,7 +1,7 @@
 # 🚨 AI-Powered Violence Detection in CCTV:
 
 An AI-powered surveillance system that detects violent activity in CCTV
-footage using Deep Learning and Computer Vision...
+footage using Deep Learning and Computer Vision.
 
 This project combines **spatio-temporal video understanding**, **object
 detection**, and **pose-aware analysis** to identify potential violent
