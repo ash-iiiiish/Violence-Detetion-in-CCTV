@@ -6,9 +6,9 @@ from ultralytics import YOLO
 # 🔧 MODEL & VIDEO PATHS
 # ==========================================
 
-MODEL_PATH = r"C:/Users/kumar/OneDrive/Desktop/TRY-3/Violence-Detetion-in-CCTV/violence-app/backend/best-yolo.pt"
+MODEL_PATH = r"C:/Users/kumar/OneDrive/Desktop/TRY-3/Violence-Detetion-in-CCTV/backend/best.pt"
 
-VIDEO_PATH = r"C:/Users/kumar/OneDrive/Desktop/TRY-3/Violence-Detetion-in-CCTV/violence-app/demo-videos/demo6.mp4"
+VIDEO_PATH = r"C:/Users/kumar/OneDrive/Desktop/TRY-3/Violence-Detetion-in-CCTV/demo-videos/demo10.mp4"
 
 # ==========================================
 # 🚀 LOAD MODEL
