@@ -6,9 +6,15 @@ from ultralytics import YOLO
 # 🔧 MODEL & VIDEO PATHS
 # ==========================================
 
-MODEL_PATH = r"C:/Users/kumar/OneDrive/Desktop/TRY-3/Violence-Detetion-in-CCTV/backend/best.pt"
+MODEL_PATH = r"C:/Users/kumar/OneDrive/Desktop/TRY-3/Violence-Detetion-in-CCTV/backend/best-yolo.pt"
+VIDEO_PATH = r"C:/Users/kumar/OneDrive/Desktop/TRY-3/Violence-Detetion-in-CCTV/demo-videos/demo11.mp4"
 
-VIDEO_PATH = r"C:/Users/kumar/OneDrive/Desktop/TRY-3/Violence-Detetion-in-CCTV/demo-videos/demo10.mp4"
+# ==========================================
+# ⚙️ CONFIDENCE SETTINGS
+# ==========================================
+
+MODEL_CONF = 0.30        # detection threshold for model
+DISPLAY_CONF = 0.40     # show detection only if >= this value
 
 # ==========================================
 # 🚀 LOAD MODEL
@@ -49,7 +55,7 @@ while True:
 
     results = model.predict(
         source=frame,
-        conf=0.30,
+        conf=MODEL_CONF,
         iou=0.6,
         verbose=False
     )
@@ -60,8 +66,14 @@ while True:
         if result.boxes is not None:
 
             for box in result.boxes:
-                class_id = int(box.cls[0])
+
                 confidence = float(box.conf[0])
+
+                # 🚨 SHOW ONLY HIGH CONFIDENCE DETECTIONS
+                if confidence < DISPLAY_CONF:
+                    continue
+
+                class_id = int(box.cls[0])
                 class_name = model.names[class_id]
 
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
