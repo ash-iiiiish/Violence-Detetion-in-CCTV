@@ -36,3 +36,5 @@ async def predict(request: Request, file: UploadFile = File(...)):
         "confidence": round(confidence * 100, 2),
         "video_url": f"{base_url}videos/{output_filename}"
     })
+
+    
