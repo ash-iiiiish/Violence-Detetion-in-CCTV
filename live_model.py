@@ -4,217 +4,327 @@ import torch
 import torch.nn as nn
 import numpy as np
 import time
-import winsound
-from collections import deque
+from collections import deque, Counter
 from torchvision.models.video import r3d_18
 from ultralytics import YOLO
+
+# ============================================================
+# NOTE: winsound is Windows-only. We handle it gracefully.
+# ============================================================
+try:
+    import winsound
+    BEEP_AVAILABLE = True
+except ImportError:
+    BEEP_AVAILABLE = False
 
 # ==========================
 # PERFORMANCE BOOST
 # ==========================
-
 torch.backends.cudnn.benchmark = True
 
 # ==========================
 # CONFIG
 # ==========================
-
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-IMG_SIZE = 112
-CLIP_LEN = 16
-YOLO_STRIDE = 3  # Run YOLO every 3 frames
 
-VIDEO_PATH = "C:/Users/kumar/OneDrive/Desktop/TRY-3/Violence-Detetion-in-CCTV/Videos/demo5.mp4"
-OUTPUT_PATH = "output.mp4"
+IMG_SIZE  = 112
+CLIP_LEN  = 16
+YOLO_STRIDE = 2         # Run YOLO every N frames
 
-MODEL_PATH = "C:/Users/kumar/OneDrive/Desktop/TRY-3/Violence-Detetion-in-CCTV/live_violence.pth"
-YOLO_PATH = "C:/Users/kumar/OneDrive/Desktop/TRY-3/Violence-Detetion-in-CCTV/yolov8n.pt"
+# ── Updated model paths (matching backend/model.py) ──────────
+MODEL_PATH = "C:/Users/kumar/OneDrive/Desktop/TRY-3/Violence-Detetion-in-CCTV/backend/best-violence.pth"
+YOLO_PATH  = "C:/Users/kumar/OneDrive/Desktop/TRY-3/Violence-Detetion-in-CCTV/backend/best-yolo.pt"
 
-SMOOTHING_WINDOW = 5
-ALERT_COOLDOWN = 3
+# ── Source mode ───────────────────────────────────────────────
+# Set SOURCE = 0 (or 1, 2 ...) for webcam
+# Set SOURCE = "path/to/video.mp4" for a video file
+SOURCE = 0   # 0 = default webcam
 
-ALERT_CLASSES = ["Fight", "HockeyFight"]
+OUTPUT_PATH = "output_live.mp4"   # only used when SOURCE is a video file
+
+# ── Detection config ──────────────────────────────────────────
+SMOOTHING_WINDOW      = 5    # majority-vote window
+WEAPON_CONF_THRESHOLD = 0.5  # min YOLO confidence to count as weapon
+WEAPON_RELAX_FRAMES   = 30   # frames before weapon mode can deactivate
+ALERT_COOLDOWN        = 3    # seconds between beep alerts
+
+ALERT_CLASSES  = ["Fight", "HockeyFight"]
+WEAPON_CLASSES_NAMES = None  # filled from YOLO model at runtime
 
 # ==========================
 # LOAD 3D CNN MODEL
 # ==========================
+print(f"[INFO] Device: {DEVICE}")
+print("[INFO] Loading R3D-18 violence model...")
 
-print("Loading 3D CNN model...")
 model = r3d_18(weights=None)
 model.fc = nn.Linear(model.fc.in_features, 4)
 
-checkpoint = torch.load(MODEL_PATH, map_location=DEVICE)
+checkpoint  = torch.load(MODEL_PATH, map_location=DEVICE)
 model.load_state_dict(checkpoint["model_state_dict"])
 class_names = checkpoint["class_names"]
 
 model.to(DEVICE)
 model.eval()
-
-print("Classes:", class_names)
+print(f"[INFO] Violence classes: {class_names}")
 
 # ==========================
 # LOAD YOLO MODEL
 # ==========================
-
+print("[INFO] Loading YOLOv8 weapon model...")
 weapon_model = YOLO(YOLO_PATH)
+print(f"[INFO] Weapon classes: {weapon_model.names}")
 
 # ==========================
-# PREPROCESS
+# PREPROCESS CLIP
 # ==========================
-
 def preprocess_clip(frames):
     frames = np.array(frames) / 255.0
-    frames = np.transpose(frames, (3, 0, 1, 2))
+    frames = np.transpose(frames, (3, 0, 1, 2))   # (C, T, H, W)
     return torch.tensor(frames, dtype=torch.float32).unsqueeze(0).to(DEVICE)
 
 # ==========================
-# VIDEO
+# DRAW HUD OVERLAY
 # ==========================
+def draw_hud(frame, label, confidence, weapon_active, fps_val, W, H):
+    """
+    Draws a clean HUD on the frame:
+      - Top-left: classification label + confidence
+      - Top-right: FPS counter
+      - Bottom bar: threat level strip
+    """
+    overlay = frame.copy()
 
-vid = cv2.VideoCapture(VIDEO_PATH)
-fps = vid.get(cv2.CAP_PROP_FPS)
-if fps == 0:
-    fps = 30
+    # ── colour logic ─────────────────────────────────────────
+    if weapon_active:
+        bar_color  = (0, 0, 220)   # red  — CRITICAL
+        text_color = (0, 0, 255)
+        threat_txt = "THREAT: CRITICAL"
+    elif label in ALERT_CLASSES:
+        bar_color  = (0, 120, 255)  # orange — HIGH
+        text_color = (0, 165, 255)
+        threat_txt = "THREAT: HIGH"
+    else:
+        bar_color  = (30, 180, 30)  # green  — SAFE
+        text_color = (0, 220, 60)
+        threat_txt = "THREAT: NONE"
 
-print("Video FPS:", fps)
+    # ── top label box ────────────────────────────────────────
+    box_h = int(H * 0.085)
+    cv2.rectangle(overlay, (0, 0), (W, box_h), (10, 14, 20), -1)
+    cv2.addWeighted(overlay, 0.75, frame, 0.25, 0, frame)
 
+    display = f"{label}  {confidence*100:.1f}%"
+    font_scale = max(0.55, W / 1200)
+    cv2.putText(frame, display,
+                (int(W * 0.02), int(box_h * 0.72)),
+                cv2.FONT_HERSHEY_DUPLEX,
+                font_scale, text_color, 2, cv2.LINE_AA)
+
+    # ── FPS top-right ─────────────────────────────────────────
+    fps_txt = f"FPS: {fps_val:.1f}"
+    (tw, _), _ = cv2.getTextSize(fps_txt, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 1)
+    cv2.putText(frame, fps_txt,
+                (W - tw - int(W * 0.02), int(box_h * 0.65)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6, (120, 120, 120), 1, cv2.LINE_AA)
+
+    # ── bottom threat strip ───────────────────────────────────
+    strip_h = int(H * 0.055)
+    cv2.rectangle(frame, (0, H - strip_h), (W, H), bar_color, -1)
+    (tw2, th2), _ = cv2.getTextSize(threat_txt, cv2.FONT_HERSHEY_SIMPLEX, 0.65, 2)
+    cv2.putText(frame, threat_txt,
+                ((W - tw2) // 2, H - strip_h + (strip_h + th2) // 2),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.65, (255, 255, 255), 2, cv2.LINE_AA)
+
+    # ── WEAPON badge ─────────────────────────────────────────
+    if weapon_active:
+        badge = "WEAPON DETECTED"
+        (bw, bh), _ = cv2.getTextSize(badge, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
+        bx = W - bw - int(W * 0.02)
+        by = H - strip_h - int(H * 0.04)
+        cv2.rectangle(frame,
+                      (bx - 6, by - bh - 4),
+                      (bx + bw + 6, by + 6),
+                      (0, 0, 180), -1)
+        cv2.putText(frame, badge, (bx, by),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6,
+                    (255, 255, 255), 2, cv2.LINE_AA)
+
+    return frame
+
+
+# ==========================
+# OPEN SOURCE
+# ==========================
+is_webcam = isinstance(SOURCE, int)
+
+print(f"[INFO] Opening {'webcam ' + str(SOURCE) if is_webcam else SOURCE} ...")
+cap = cv2.VideoCapture(SOURCE)
+
+if not cap.isOpened():
+    raise RuntimeError(f"[ERROR] Cannot open source: {SOURCE}")
+
+fps_src = cap.get(cv2.CAP_PROP_FPS)
+if fps_src == 0 or fps_src is None:
+    fps_src = 30
+
+W = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+H = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+print(f"[INFO] Resolution: {W}x{H}  |  FPS: {fps_src:.1f}")
+
+# ── Writer (only for video file input) ───────────────────────
 writer = None
-(W, H) = (None, None)
+if not is_webcam:
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    writer = cv2.VideoWriter(OUTPUT_PATH, fourcc, fps_src, (W, H))
+    print(f"[INFO] Output will be saved to: {OUTPUT_PATH}")
 
-frame_buffer = deque(maxlen=CLIP_LEN)
+# ==========================
+# STATE
+# ==========================
+frame_buffer      = deque(maxlen=CLIP_LEN)
 prediction_history = deque(maxlen=SMOOTHING_WINDOW)
 confidence_history = deque(maxlen=SMOOTHING_WINDOW)
 
-alert_cooldown_until = 0
-current_label = "NonFight"
+current_label      = "Processing..."
 current_confidence = 0.0
 
+weapon_active          = False
+weapon_relax_counter   = 0
+last_yolo_boxes        = []   # [(x1,y1,x2,y2, conf, cls_name), ...]
+
+alert_cooldown_until = 0
 frame_count = 0
-last_yolo_boxes = []
 
-start_time = time.time()
+# FPS tracking
+fps_timer    = time.time()
+fps_display  = 0.0
+fps_counter  = 0
 
+print("[INFO] Running — press ESC or Q to quit.\n")
+
+# ==========================
+# MAIN LOOP
+# ==========================
 while True:
-    grabbed, frame = vid.read()
+    grabbed, frame = cap.read()
     if not grabbed:
-        break
+        if is_webcam:
+            print("[WARN] Webcam frame grab failed — retrying...")
+            continue
+        else:
+            print("[INFO] End of video.")
+            break
 
     frame_count += 1
+    fps_counter  += 1
 
-    if W is None:
-        (H, W) = frame.shape[:2]
+    # ── Rolling FPS ─────────────────────────────────────────
+    now = time.time()
+    if now - fps_timer >= 1.0:
+        fps_display = fps_counter / (now - fps_timer)
+        fps_counter = 0
+        fps_timer   = now
 
     output = frame.copy()
 
-    # ===============================
-    # CNN PROCESSING
-    # ===============================
+    # ── YOLOv8 Weapon Detection ──────────────────────────────
+    if frame_count % YOLO_STRIDE == 0:
+        results = weapon_model(frame, imgsz=640, verbose=False)
+        last_yolo_boxes = []
 
+        for r in results:
+            for box in r.boxes:
+                conf_w = float(box.conf[0])
+                if conf_w >= WEAPON_CONF_THRESHOLD:
+                    weapon_active        = True
+                    weapon_relax_counter = WEAPON_RELAX_FRAMES
+                    cls_id    = int(box.cls[0])
+                    cls_name  = weapon_model.names[cls_id]
+                    x1, y1, x2, y2 = map(int, box.xyxy[0])
+                    last_yolo_boxes.append((x1, y1, x2, y2, conf_w, cls_name))
+
+        # relax weapon mode if nothing detected for N frames
+        if weapon_active and weapon_relax_counter > 0:
+            weapon_relax_counter -= YOLO_STRIDE
+        if weapon_relax_counter <= 0:
+            weapon_active = False
+
+    # ── Draw YOLO boxes ──────────────────────────────────────
+    for (x1, y1, x2, y2, conf_w, cls_name) in last_yolo_boxes:
+        cv2.rectangle(output, (x1, y1), (x2, y2), (0, 0, 255), 2)
+        cv2.putText(output,
+                    f"{cls_name} {conf_w:.2f}",
+                    (x1, max(y1 - 8, 12)),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.55, (0, 0, 255), 2, cv2.LINE_AA)
+
+    # ── R3D-18 Violence Classification ──────────────────────
     resized = cv2.resize(frame, (IMG_SIZE, IMG_SIZE))
     frame_buffer.append(resized)
 
     if len(frame_buffer) == CLIP_LEN:
-
         clip = preprocess_clip(list(frame_buffer))
 
         with torch.inference_mode():
-            outputs = model(clip)
-            probs = torch.softmax(outputs, dim=1)
-            conf, pred = torch.max(probs, 1)
+            out   = model(clip)
+            probs = torch.softmax(out, dim=1)
+            conf_v, pred = torch.max(probs, 1)
 
         predicted_label = class_names[pred.item()]
-        predicted_conf = conf.item()
-
         prediction_history.append(predicted_label)
-        confidence_history.append(predicted_conf)
+        confidence_history.append(conf_v.item())
 
-        # Majority vote smoothing
-        current_label = max(set(prediction_history), key=prediction_history.count)
+        # Majority-vote smoothing
+        current_label = Counter(prediction_history).most_common(1)[0][0]
 
-        # Average confidence of smoothed label
-        relevant_conf = [
+        # Average confidence for the winning label
+        relevant = [
             confidence_history[i]
             for i in range(len(prediction_history))
             if prediction_history[i] == current_label
         ]
+        current_confidence = sum(relevant) / len(relevant) if relevant else 0.0
 
-        if len(relevant_conf) > 0:
-            current_confidence = sum(relevant_conf) / len(relevant_conf)
+    # ── Final label string ───────────────────────────────────
+    if weapon_active:
+        display_label = f"Weaponized - {current_label}"
+    else:
+        display_label = current_label
 
-    # ===============================
-    # ALERT LOGIC
-    # ===============================
+    # ── HUD Overlay ──────────────────────────────────────────
+    output = draw_hud(output, display_label, current_confidence,
+                      weapon_active, fps_display, W, H)
 
-    is_violence = current_label in ALERT_CLASSES
-    color = (0, 0, 255) if is_violence else (0, 255, 0)
+    # ── Beep Alert (Windows only) ─────────────────────────────
+    if BEEP_AVAILABLE:
+        is_violent = current_label in ALERT_CLASSES or weapon_active
+        if is_violent and now > alert_cooldown_until:
+            alert_cooldown_until = now + ALERT_COOLDOWN
+            winsound.Beep(1000, 400)
 
-    # ===============================
-    # YOLO (RUN EVERY N FRAMES)
-    # ===============================
+    # ── Save frame (video file mode) ─────────────────────────
+    if writer is not None:
+        writer.write(output)
 
-    if frame_count % YOLO_STRIDE == 0:
-        yolo_results = weapon_model(frame, imgsz=640, verbose=False)
+    # ── Display ───────────────────────────────────────────────
+    window_title = "VIGIL.AI — Live Threat Detection  |  ESC / Q to quit"
+    cv2.imshow(window_title, output)
 
-        last_yolo_boxes = []
-        for r in yolo_results:
-            for box in r.boxes:
-                x1, y1, x2, y2 = map(int, box.xyxy[0])
-                last_yolo_boxes.append((x1, y1, x2, y2))
-
-    # Draw stored boxes
-    for (x1, y1, x2, y2) in last_yolo_boxes:
-        cv2.rectangle(output, (x1, y1), (x2, y2), color, 2)
-
-    # ===============================
-    # DISPLAY LABEL + CONFIDENCE
-    # ===============================
-
-    display_text = f"{current_label} ({current_confidence*100:.2f}%)"
-
-    cv2.putText(
-        output,
-        display_text,
-        (int(0.03 * W), int(0.08 * H)),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        1,
-        color,
-        3,
-    )
-
-    # ===============================
-    # BEEP ALERT
-    # ===============================
-
-    current_time = time.time()
-    if is_violence and current_time > alert_cooldown_until:
-        alert_cooldown_until = current_time + ALERT_COOLDOWN
-        winsound.Beep(1000, 500)
-
-    # ===============================
-    # SAVE VIDEO
-    # ===============================
-
-    if writer is None:
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        writer = cv2.VideoWriter(OUTPUT_PATH, fourcc, fps, (W, H), True)
-
-    writer.write(output)
-    cv2.imshow("Output", output)
-
-    if cv2.waitKey(1) & 0xFF == 27:
+    key = cv2.waitKey(1) & 0xFF
+    if key == 27 or key == ord('q') or key == ord('Q'):
+        print("[INFO] Quit signal received.")
         break
 
 # ==========================
 # CLEANUP
 # ==========================
-
-end_time = time.time()
-total_time = end_time - start_time
-print("Total Time:", total_time)
-print("Average FPS:", frame_count / total_time)
-
+cap.release()
 if writer:
     writer.release()
+    print(f"[INFO] Output saved to: {OUTPUT_PATH}")
 
-vid.release()
 cv2.destroyAllWindows()
+print(f"[INFO] Processed {frame_count} frames. Done.")
