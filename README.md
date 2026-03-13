@@ -124,6 +124,18 @@ Annotated Video Returned via FastAPI
 
 ---
 
+## 📸 Models Stats :
+
+<p align="center">
+  <img src="images/image3.png" alt="VIGIL.AI — Upload & Detection Interface" width="100%"/>
+</p>
+
+<p align="center">
+  <img src="images/image4.png" alt="VIGIL.AI — Threat Assessment & Annotated Output" width="100%"/>
+</p>
+
+---
+
 ## 📂 Project Structure
 
 ```
