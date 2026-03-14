@@ -4,7 +4,7 @@
 
 ---
 
-## 📸 Demo
+## 📸 Demo:
 
 <p align="center">
   <img src="images/image1.png" alt="VIGIL.AI — Upload & Detection Interface" width="100%"/>
