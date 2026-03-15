@@ -1,10 +1,10 @@
-# VIGIL.AI — Automated Violence & Weapon Detection in CCTV
+# VIGIL.AI — Automated Violence & Weapon Detection in CCTV:
 
 > **An AI-powered surveillance platform that detects violent activity and weapons in CCTV footage using spatio-temporal deep learning and real-time object detection.**
 
 ---
 
-## 📸 Demo
+## 📸 Demo:
 
 <p align="center">
   <img src="images/image1.png" alt="VIGIL.AI — Upload & Detection Interface" width="100%"/>
@@ -349,4 +349,5 @@ This project is licensed under the terms of the [LICENSE](LICENSE) file.
 Built with PyTorch · YOLOv8 · FastAPI · Streamlit
 
 </div>
+
 
