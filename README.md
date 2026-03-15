@@ -350,3 +350,4 @@ Built with PyTorch · YOLOv8 · FastAPI · Streamlit
 
 </div>
 
+structureal changes 
