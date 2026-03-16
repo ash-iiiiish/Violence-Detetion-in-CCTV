@@ -349,3 +349,6 @@ This project is licensed under the terms of the [LICENSE](LICENSE) file.
 Built with PyTorch · YOLOv8 · FastAPI · Streamlit
 
 </div>
+
+efojpoefr
+ferjifee
