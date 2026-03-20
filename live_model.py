@@ -27,29 +27,86 @@ torch.backends.cudnn.benchmark = True
 # ==========================
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-IMG_SIZE  = 112
-CLIP_LEN  = 16
+IMG_SIZE    = 112
+CLIP_LEN    = 16
 YOLO_STRIDE = 2         # Run YOLO every N frames
 
-# ── Updated model paths (matching backend/model.py) ──────────
+# ── Model paths ───────────────────────────────────────────────
 MODEL_PATH = "C:/Users/kumar/OneDrive/Desktop/TRY-3/Violence-Detetion-in-CCTV/backend/best-violence.pth"
 YOLO_PATH  = "C:/Users/kumar/OneDrive/Desktop/TRY-3/Violence-Detetion-in-CCTV/backend/best-yolo.pt"
-
-# ── Source mode ───────────────────────────────────────────────
-# Set SOURCE = 0 (or 1, 2 ...) for webcam
-# Set SOURCE = "path/to/video.mp4" for a video file
-SOURCE = 0   # 0 = default webcam
 
 OUTPUT_PATH = "output_live.mp4"   # only used when SOURCE is a video file
 
 # ── Detection config ──────────────────────────────────────────
 SMOOTHING_WINDOW      = 5    # majority-vote window
-WEAPON_CONF_THRESHOLD = 0.5  # min YOLO confidence to count as weapon
+WEAPON_CONF_THRESHOLD = 0.8  # min YOLO confidence to count as weapon
 WEAPON_RELAX_FRAMES   = 30   # frames before weapon mode can deactivate
 ALERT_COOLDOWN        = 3    # seconds between beep alerts
 
-ALERT_CLASSES  = ["Fight", "HockeyFight"]
+ALERT_CLASSES        = ["Fight", "HockeyFight"]
 WEAPON_CLASSES_NAMES = None  # filled from YOLO model at runtime
+
+# ── Camo detection config ──────────────────────────────────────
+# Camo Studio virtual camera is identified by higher resolution
+# than a typical built-in webcam. We scan indices 0–5 and pick
+# the one with the highest resolution; if it differs from index 0
+# we treat it as the Camo camera. You can also hardcode a fallback.
+MAX_CAMERA_SCAN = 6          # how many indices to probe
+
+
+# ==========================
+# AUTO CAMERA SELECTOR
+# ==========================
+def find_best_camera():
+    """
+    Scans camera indices 0 to MAX_CAMERA_SCAN-1.
+    Returns (index, label) where label is 'Camo/Android' or 'Built-in Webcam'.
+
+    Strategy:
+      1. Collect all available cameras and their resolutions.
+      2. If more than one camera is found, pick the one with the
+         highest resolution that is NOT index 0 — that is almost
+         certainly the Camo virtual camera.
+      3. If only one camera exists (index 0), use that as fallback.
+    """
+    available = []  # list of (index, width, height)
+
+    print("[CAMERA SCAN] Probing available cameras...")
+    for i in range(MAX_CAMERA_SCAN):
+        cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)   # CAP_DSHOW = faster init on Windows
+        if cap.isOpened():
+            ret, _ = cap.read()
+            if ret:
+                w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                available.append((i, w, h))
+                print(f"  [✓] Index {i}: {w}x{h}")
+            cap.release()
+        else:
+            print(f"  [✗] Index {i}: not available")
+
+    if not available:
+        raise RuntimeError("[ERROR] No camera found at all!")
+
+    if len(available) == 1:
+        idx, w, h = available[0]
+        print(f"\n[CAMERA] Only one camera found. Using index {idx} ({w}x{h}) — Built-in Webcam\n")
+        return idx, "Built-in Webcam"
+
+    # Prefer non-zero index with highest resolution (Camo virtual cam)
+    non_default = [(i, w, h) for i, w, h in available if i != 0]
+    if non_default:
+        # pick highest resolution among non-default cameras
+        best = max(non_default, key=lambda x: x[1] * x[2])
+        idx, w, h = best
+        print(f"\n[CAMERA] Camo/Android camera detected at index {idx} ({w}x{h}). Using it!\n")
+        return idx, "Camo/Android Camera"
+
+    # All found cameras are index 0 (shouldn't happen but safe fallback)
+    idx, w, h = available[0]
+    print(f"\n[CAMERA] Falling back to index {idx} ({w}x{h}) — Built-in Webcam\n")
+    return idx, "Built-in Webcam"
+
 
 # ==========================
 # LOAD 3D CNN MODEL
@@ -86,26 +143,20 @@ def preprocess_clip(frames):
 # ==========================
 # DRAW HUD OVERLAY
 # ==========================
-def draw_hud(frame, label, confidence, weapon_active, fps_val, W, H):
-    """
-    Draws a clean HUD on the frame:
-      - Top-left: classification label + confidence
-      - Top-right: FPS counter
-      - Bottom bar: threat level strip
-    """
+def draw_hud(frame, label, confidence, weapon_active, fps_val, W, H, cam_label):
     overlay = frame.copy()
 
     # ── colour logic ─────────────────────────────────────────
     if weapon_active:
-        bar_color  = (0, 0, 220)   # red  — CRITICAL
+        bar_color  = (0, 0, 220)
         text_color = (0, 0, 255)
         threat_txt = "THREAT: CRITICAL"
     elif label in ALERT_CLASSES:
-        bar_color  = (0, 120, 255)  # orange — HIGH
+        bar_color  = (0, 120, 255)
         text_color = (0, 165, 255)
         threat_txt = "THREAT: HIGH"
     else:
-        bar_color  = (30, 180, 30)  # green  — SAFE
+        bar_color  = (30, 180, 30)
         text_color = (0, 220, 60)
         threat_txt = "THREAT: NONE"
 
@@ -120,6 +171,14 @@ def draw_hud(frame, label, confidence, weapon_active, fps_val, W, H):
                 (int(W * 0.02), int(box_h * 0.72)),
                 cv2.FONT_HERSHEY_DUPLEX,
                 font_scale, text_color, 2, cv2.LINE_AA)
+
+    # ── Camera source label (top-centre) ─────────────────────
+    cam_txt = f"[ {cam_label} ]"
+    (cw, _), _ = cv2.getTextSize(cam_txt, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+    cv2.putText(frame, cam_txt,
+                ((W - cw) // 2, int(box_h * 0.65)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.5, (180, 180, 180), 1, cv2.LINE_AA)
 
     # ── FPS top-right ─────────────────────────────────────────
     fps_txt = f"FPS: {fps_val:.1f}"
@@ -156,52 +215,47 @@ def draw_hud(frame, label, confidence, weapon_active, fps_val, W, H):
 
 
 # ==========================
-# OPEN SOURCE
+# AUTO-SELECT CAMERA
 # ==========================
-is_webcam = isinstance(SOURCE, int)
+SOURCE, CAM_LABEL = find_best_camera()
+is_webcam = True   # always True since we're always using a camera index (int)
 
-print(f"[INFO] Opening {'webcam ' + str(SOURCE) if is_webcam else SOURCE} ...")
-cap = cv2.VideoCapture(SOURCE)
+print(f"[INFO] Opening camera index {SOURCE} ({CAM_LABEL}) ...")
+cap = cv2.VideoCapture(SOURCE, cv2.CAP_DSHOW)
 
 if not cap.isOpened():
-    raise RuntimeError(f"[ERROR] Cannot open source: {SOURCE}")
+    raise RuntimeError(f"[ERROR] Cannot open camera at index: {SOURCE}")
 
 fps_src = cap.get(cv2.CAP_PROP_FPS)
-if fps_src == 0 or fps_src is None:
+if not fps_src or fps_src == 0:
     fps_src = 30
 
 W = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 H = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 print(f"[INFO] Resolution: {W}x{H}  |  FPS: {fps_src:.1f}")
-
-# ── Writer (only for video file input) ───────────────────────
-writer = None
-if not is_webcam:
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    writer = cv2.VideoWriter(OUTPUT_PATH, fourcc, fps_src, (W, H))
-    print(f"[INFO] Output will be saved to: {OUTPUT_PATH}")
+print(f"[INFO] Active camera: {CAM_LABEL}\n")
 
 # ==========================
 # STATE
 # ==========================
-frame_buffer      = deque(maxlen=CLIP_LEN)
+frame_buffer       = deque(maxlen=CLIP_LEN)
 prediction_history = deque(maxlen=SMOOTHING_WINDOW)
 confidence_history = deque(maxlen=SMOOTHING_WINDOW)
 
 current_label      = "Processing..."
 current_confidence = 0.0
 
-weapon_active          = False
-weapon_relax_counter   = 0
-last_yolo_boxes        = []   # [(x1,y1,x2,y2, conf, cls_name), ...]
+weapon_active        = False
+weapon_relax_counter = 0
+last_yolo_boxes      = []   # [(x1,y1,x2,y2, conf, cls_name), ...]
 
 alert_cooldown_until = 0
-frame_count = 0
+frame_count          = 0
 
 # FPS tracking
-fps_timer    = time.time()
-fps_display  = 0.0
-fps_counter  = 0
+fps_timer   = time.time()
+fps_display = 0.0
+fps_counter = 0
 
 print("[INFO] Running — press ESC or Q to quit.\n")
 
@@ -211,12 +265,9 @@ print("[INFO] Running — press ESC or Q to quit.\n")
 while True:
     grabbed, frame = cap.read()
     if not grabbed:
-        if is_webcam:
-            print("[WARN] Webcam frame grab failed — retrying...")
-            continue
-        else:
-            print("[INFO] End of video.")
-            break
+        print("[WARN] Frame grab failed — retrying...")
+        time.sleep(0.05)
+        continue
 
     frame_count += 1
     fps_counter  += 1
@@ -241,8 +292,8 @@ while True:
                 if conf_w >= WEAPON_CONF_THRESHOLD:
                     weapon_active        = True
                     weapon_relax_counter = WEAPON_RELAX_FRAMES
-                    cls_id    = int(box.cls[0])
-                    cls_name  = weapon_model.names[cls_id]
+                    cls_id   = int(box.cls[0])
+                    cls_name = weapon_model.names[cls_id]
                     x1, y1, x2, y2 = map(int, box.xyxy[0])
                     last_yolo_boxes.append((x1, y1, x2, y2, conf_w, cls_name))
 
@@ -289,14 +340,11 @@ while True:
         current_confidence = sum(relevant) / len(relevant) if relevant else 0.0
 
     # ── Final label string ───────────────────────────────────
-    if weapon_active:
-        display_label = f"Weaponized - {current_label}"
-    else:
-        display_label = current_label
+    display_label = f"Weaponized - {current_label}" if weapon_active else current_label
 
     # ── HUD Overlay ──────────────────────────────────────────
     output = draw_hud(output, display_label, current_confidence,
-                      weapon_active, fps_display, W, H)
+                      weapon_active, fps_display, W, H, CAM_LABEL)
 
     # ── Beep Alert (Windows only) ─────────────────────────────
     if BEEP_AVAILABLE:
@@ -305,12 +353,8 @@ while True:
             alert_cooldown_until = now + ALERT_COOLDOWN
             winsound.Beep(1000, 400)
 
-    # ── Save frame (video file mode) ─────────────────────────
-    if writer is not None:
-        writer.write(output)
-
     # ── Display ───────────────────────────────────────────────
-    window_title = "VIGIL.AI — Live Threat Detection  |  ESC / Q to quit"
+    window_title = f"VIGIL.AI — {CAM_LABEL}  |  ESC / Q to quit"
     cv2.imshow(window_title, output)
 
     key = cv2.waitKey(1) & 0xFF
@@ -322,9 +366,5 @@ while True:
 # CLEANUP
 # ==========================
 cap.release()
-if writer:
-    writer.release()
-    print(f"[INFO] Output saved to: {OUTPUT_PATH}")
-
 cv2.destroyAllWindows()
 print(f"[INFO] Processed {frame_count} frames. Done.")
