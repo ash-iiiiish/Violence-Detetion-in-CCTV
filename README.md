@@ -346,7 +346,7 @@ This project is licensed under the terms of the [LICENSE](LICENSE) file.
 
 **⭐ If you found VIGIL.AI useful, please consider giving the repo a star!!**
 
-Built with PyTorch · YOLOv8 · FastAPI · Streamlit
+Built with PyTorch · R3D-18 · YOLOv8 · FastAPI · Streamlit
 
 </div>
 
