@@ -9,6 +9,7 @@ cd frontend
 streamlit run ui.py
 
 
+conda activate C:\Users\kumar\OneDrive\Desktop\TRY-3\Violence-Detetion-in-CCTV\violenceenv
 
 ---------------- Next steps for Production-Level ---------------
 
