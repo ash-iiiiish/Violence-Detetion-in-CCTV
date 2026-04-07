@@ -2,6 +2,8 @@ import streamlit as st
 import requests
 import base64
 import os
+import subprocess
+import tempfile
 
 BACKEND_URL = "http://127.0.0.1:8000/predict/"
 
@@ -27,6 +29,55 @@ demo_img_b64 = load_image_b64([
     "images/1775591177571_image.png",
     "images/1775591177571_image.jpg",
 ])
+
+
+# ── ffmpeg re-encode helper ───────────────────────────
+def reencode_video_for_browser(video_bytes: bytes) -> bytes:
+    """
+    Re-encodes video bytes to H.264/AAC MP4 with faststart flag so the
+    browser can play it inline without downloading the full file first.
+    Returns the re-encoded bytes, or the original bytes if ffmpeg fails.
+    """
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp_in:
+            tmp_in.write(video_bytes)
+            in_path = tmp_in.name
+
+        out_path = in_path.replace(".mp4", "_browser.mp4")
+
+        result = subprocess.run(
+            [
+                "ffmpeg", "-y",
+                "-i", in_path,
+                "-vcodec", "libx264",
+                "-preset", "fast",
+                "-crf", "23",
+                "-acodec", "aac",
+                "-movflags", "+faststart",
+                out_path,
+            ],
+            capture_output=True,
+        )
+
+        if result.returncode == 0 and os.path.exists(out_path):
+            with open(out_path, "rb") as f:
+                encoded = f.read()
+        else:
+            encoded = video_bytes          # fallback to original
+    except Exception:
+        encoded = video_bytes              # fallback if ffmpeg not found
+    finally:
+        try:
+            os.unlink(in_path)
+        except Exception:
+            pass
+        try:
+            os.unlink(out_path)
+        except Exception:
+            pass
+
+    return encoded
+
 
 st.markdown("""
 <style>
@@ -377,6 +428,7 @@ html, body, [data-testid="stAppViewContainer"] {
 
 /* ═══════════════════════════════
    FILE UPLOADER — FORCE LIGHT THEME
+   FIX: hide the duplicate label text
 ═══════════════════════════════ */
 [data-testid="stFileUploader"],
 [data-testid="stFileUploader"] > div,
@@ -386,6 +438,14 @@ section[data-testid="stFileUploader"] > div {
     background: #f8fafc !important;
     background-color: #f8fafc !important;
     color: #334155 !important;
+}
+
+/* Hide the top label that causes the duplicate "uploadUpload" text */
+[data-testid="stFileUploader"] > label,
+[data-testid="stFileUploader"] label:first-of-type {
+    display: none !important;
+    height: 0 !important;
+    overflow: hidden !important;
 }
 
 [data-testid="stFileUploader"] > div {
@@ -1031,9 +1091,6 @@ st.markdown("""
 
 
 # ── HERO — two-column: text LEFT, image RIGHT ─────────
-# IMPORTANT: never embed an HTML-containing Python variable into an f-string.
-# Instead branch the entire st.markdown call so each path is a plain string literal.
-
 HERO_TEXT = """
 <div class="vigil-hero-text">
     <div class="vigil-hero-eyebrow">Automated Violence &amp; Weapon Detection</div>
@@ -1122,7 +1179,7 @@ with col_left:
     uploaded_file = st.file_uploader(
         label="Upload Surveillance Feed (.mp4)",
         type=["mp4"],
-        label_visibility="hidden"
+        label_visibility="collapsed"   # ← FIX: "collapsed" removes label space entirely
     )
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -1311,8 +1368,31 @@ with col_right:
                 unsafe_allow_html=True,
             )
 
-            st.markdown('<div class="card" style="margin-top:1.4rem"><div class="card-title">Output — Annotated Feed</div>', unsafe_allow_html=True)
-            st.video(video_url)
+            # ── FIX: Fetch annotated video → re-encode via ffmpeg → display ──
+            st.markdown(
+                '<div class="card" style="margin-top:1.4rem">'
+                '<div class="card-title">Output — Annotated Feed</div>',
+                unsafe_allow_html=True,
+            )
+
+            try:
+                vid_response = requests.get(video_url, timeout=60)
+                if vid_response.status_code == 200:
+                    raw_bytes     = vid_response.content
+                    browser_bytes = reencode_video_for_browser(raw_bytes)
+                    st.video(browser_bytes)
+                else:
+                    st.markdown(
+                        '<div class="err-box">&#10005; &nbsp;Could not fetch annotated video — '
+                        'HTTP ' + str(vid_response.status_code) + '</div>',
+                        unsafe_allow_html=True,
+                    )
+            except Exception as fetch_err:
+                st.markdown(
+                    '<div class="err-box">&#10005; &nbsp;Video fetch error — ' + str(fetch_err) + '</div>',
+                    unsafe_allow_html=True,
+                )
+
             st.markdown("</div>", unsafe_allow_html=True)
 
         else:
