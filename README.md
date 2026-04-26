@@ -1,5 +1,6 @@
 # VIGIL.AI — Automated Violence & Weapon Detection in CCTV
 
+
 > **An AI-powered surveillance platform that detects violent activity and weapons in CCTV footage using spatio-temporal deep learning and real-time object detection.**
 
 ---
