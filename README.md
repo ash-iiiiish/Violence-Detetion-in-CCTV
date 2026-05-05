@@ -33,7 +33,13 @@ A user uploads a video clip — security camera feed, recorded footage — and t
 
 ---
 
-![Demo](images/image1.png)
+<p align="center">
+  <img src="images/image1.png" alt="VIGIL.AI — Upload & Detection Interface" width="100%"/>
+</p>
+
+<p align="center">
+  <img src="images/image2.png" alt="VIGIL.AI — Threat Assessment & Annotated Output" width="100%"/>
+</p>
 
 ---
 
@@ -82,6 +88,18 @@ CCTV Video Input (.mp4)
 | **Smoothing** | Majority-vote (5-frame window) | Prevent flickering predictions |
 | **Framework** | PyTorch + torchvision | Model training and inference |
 | **UI** | Streamlit | Web interface |
+
+---
+
+## 📸 Model Stats
+
+<p align="center">
+  <img src="images/image3.png" alt="VIGIL.AI — Model Performance Stats" width="100%"/>
+</p>
+
+<p align="center">
+  <img src="images/image4.png" alt="VIGIL.AI — Model Training Curves" width="100%"/>
+</p>
 
 ---
 
