@@ -27,8 +27,8 @@ VIOLENCE_LOCK_THRESHOLD = 0.55   # minimum confidence to trigger lock
 VIOLENCE_LOCK_CLASSES   = ["Fight", "HockeyFight", "MovieFight"]  # classes that trigger lock
 
 # 🔥 MANUAL PATHS
-MODEL_PATH = "C:/Users/kumar/OneDrive/Desktop/TRY-3/Violence-Detetion-in-CCTV/backend/best-violence.pth"
-YOLO_PATH  = "C:/Users/kumar/OneDrive/Desktop/TRY-3/Violence-Detetion-in-CCTV/backend/best-yolo.pt"
+MODEL_PATH = "C:/Users/kumar/OneDrive/Desktop/1-main-combined-projfolder/Violence-Detetion-in-CCTV/backend/best-violence.pth"
+YOLO_PATH  = "C:/Users/kumar/OneDrive/Desktop/1-main-combined-projfolder/Violence-Detetion-in-CCTV/backend/best-yolo.pt"
 
 BASE_DIR       = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_FOLDER  = os.path.join(BASE_DIR, "processed_videos")
