@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🔍 VIGIL.AI
+# 🔍 VIGIL.AIa
 ### Automated Violence & Weapon Detection in CCTV
 
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
