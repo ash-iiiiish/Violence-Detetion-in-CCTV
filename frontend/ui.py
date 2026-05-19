@@ -533,7 +533,8 @@ div[data-testid="stHorizontalBlock"].nav-btn-row > div[data-testid="column"] > d
 }
 
 /* ═══ BUTTON ═══ */
-.stButton > button {
+.stButton > button,
+.stDownloadButton > button {
     width:100% !important; background:#2563eb !important; color:#fff !important;
     border:none !important; border-radius:10px !important;
     font-family:'DM Sans',sans-serif !important; font-size:0.96rem !important;
@@ -541,11 +542,13 @@ div[data-testid="stHorizontalBlock"].nav-btn-row > div[data-testid="column"] > d
     padding:0.9rem 2rem !important; transition:all 0.2s !important;
     margin-top:0.4rem !important; box-shadow:0 4px 14px rgba(37,99,235,0.3) !important;
 }
-.stButton > button:hover {
+.stButton > button:hover,
+.stDownloadButton > button:hover {
     background:#1d4ed8 !important; box-shadow:0 6px 22px rgba(37,99,235,0.4) !important;
     transform:translateY(-1px) !important;
 }
-.stButton > button:active { transform:translateY(0) !important; }
+.stButton > button:active,
+.stDownloadButton > button:active { transform:translateY(0) !important; }
 
 /* ═══ VIDEO ═══ */
 [data-testid="stVideo"] video, video {
