@@ -35,8 +35,8 @@ CLIP_LEN    = 16
 YOLO_STRIDE = 2         # Run YOLO every N frames
 
 # ── Model paths ───────────────────────────────────────────────
-MODEL_PATH = "C:/Users/kumar/OneDrive/Desktop/TRY-3/Violence-Detetion-in-CCTV/backend/best-violence.pth"
-YOLO_PATH  = "C:/Users/kumar/OneDrive/Desktop/TRY-3/Violence-Detetion-in-CCTV/backend/best-yolo.pt"
+MODEL_PATH = "C:/Users/kumar/OneDrive/Desktop/1-main-combined-projfolder/Violence-Detetion-in-CCTV/backend/best-violence.pth"
+YOLO_PATH  = "C:/Users/kumar/OneDrive/Desktop/1-main-combined-projfolder/Violence-Detetion-in-CCTV/backend/best-yolo.pt"
 
 OUTPUT_PATH = "output_live.mp4"   # only used when SOURCE is a video file
 
